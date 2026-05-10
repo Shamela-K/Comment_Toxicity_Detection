@@ -1,42 +1,75 @@
-# =========================================================
-# Deep Learning Comment Toxicity Detection - Streamlit App
-# =========================================================
-
-# -----------------------------
-# Import Libraries
-# -----------------------------
 
 import streamlit as st
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 import pickle
-import re
 
-from nltk.corpus import stopwords
+from tensorflow.keras.models import load_model
 from tensorflow.keras.layers import TextVectorization
 
-# -----------------------------
-# Streamlit Page Config
-# -----------------------------
+# ---------------------------------------------------
+# PAGE CONFIG
+# ---------------------------------------------------
 
 st.set_page_config(
-    page_title="Toxicity Detection",
+    page_title="Comment Toxicity Detection",
     page_icon="⚠️",
     layout="wide"
 )
 
-# -----------------------------
-# Load Model
-# -----------------------------
+# ---------------------------------------------------
+# CUSTOM CSS
+# ---------------------------------------------------
 
-model = tf.keras.models.load_model(
-    "toxicity_model.h5"
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #f5f7fa;
+    }
+
+    .title {
+        text-align: center;
+        font-size: 45px;
+        font-weight: bold;
+        color: #ff4b4b;
+    }
+
+    .subtitle {
+        text-align: center;
+        font-size: 18px;
+        color: #444444;
+        margin-bottom: 30px;
+    }
+
+    .result-box {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0px 2px 10px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
+
+    .footer {
+        text-align: center;
+        color: gray;
+        margin-top: 50px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
-# -----------------------------
-# Load Vectorizer
-# -----------------------------
+# ---------------------------------------------------
+# LOAD MODEL
+# ---------------------------------------------------
+
+model = load_model("toxicity_model.h5")
+
+# ---------------------------------------------------
+# LOAD VECTORIZER
+# ---------------------------------------------------
 
 with open("vectorizer.pkl", "rb") as f:
     vectorizer_data = pickle.load(f)
@@ -45,42 +78,15 @@ vectorizer = TextVectorization.from_config(
     vectorizer_data["config"]
 )
 
+vectorizer.adapt(["test"])
+
 vectorizer.set_weights(
     vectorizer_data["weights"]
 )
 
-# -----------------------------
-# Stopwords
-# -----------------------------
-
-stop_words = set(stopwords.words('english'))
-
-# -----------------------------
-# Text Cleaning Function
-# -----------------------------
-
-def clean_text(text):
-
-    text = text.lower()
-
-    text = re.sub(r'http\S+', '', text)
-
-    text = re.sub(r'[^a-zA-Z\s]', '', text)
-
-    text = re.sub(r'\s+', ' ', text).strip()
-
-    words = text.split()
-
-    words = [
-        word for word in words
-        if word not in stop_words
-    ]
-
-    return " ".join(words)
-
-# -----------------------------
-# Toxicity Labels
-# -----------------------------
+# ---------------------------------------------------
+# LABELS
+# ---------------------------------------------------
 
 labels = [
     'toxic',
@@ -91,164 +97,97 @@ labels = [
     'identity_hate'
 ]
 
-# =========================================================
-# SIDEBAR
-# =========================================================
+# ---------------------------------------------------
+# HEADER
+# ---------------------------------------------------
 
-st.sidebar.title("📌 Project Information")
-
-st.sidebar.markdown("""
-### Technologies Used
-- Deep Learning
-- NLP
-- TensorFlow
-- Streamlit
-
-### Model
-Bidirectional LSTM
-
-### Dataset
-Jigsaw Toxic Comment Dataset
-""")
-
-# =========================================================
-# TITLE
-# =========================================================
-
-st.markdown("""
-# ⚠️ Deep Learning Comment Toxicity Detection
-
-Detect toxic online comments using NLP and Deep Learning.
-""")
-
-# =========================================================
-# DATASET INSIGHTS
-# =========================================================
-
-st.header("📊 Dataset Insights")
-
-col1, col2, col3 = st.columns(3)
-
-col1.metric(
-    "Dataset Size",
-    "159,571"
+st.markdown(
+    '<div class="title">⚠️ Comment Toxicity Detection</div>',
+    unsafe_allow_html=True
 )
 
-col2.metric(
-    "Categories",
-    "6"
+st.markdown(
+    '<div class="subtitle">Deep Learning + NLP based Toxic Comment Classifier</div>',
+    unsafe_allow_html=True
 )
 
-col3.metric(
-    "Validation Accuracy",
-    "99.3%"
-)
+# ---------------------------------------------------
+# LAYOUT
+# ---------------------------------------------------
 
-# =========================================================
-# TOXICITY CATEGORIES
-# =========================================================
+col1, col2 = st.columns([2, 1])
 
-st.subheader("Toxicity Categories")
+# ---------------------------------------------------
+# LEFT SIDE
+# ---------------------------------------------------
 
-st.markdown("""
-- Toxic
-- Severe Toxic
-- Obscene
-- Threat
-- Insult
-- Identity Hate
-""")
+with col1:
 
-# =========================================================
-# MODEL PERFORMANCE
-# =========================================================
+    st.subheader("✍️ Enter Comment")
 
-st.header("📈 Model Performance")
+    user_input = st.text_area(
+        "",
+        placeholder="Type your comment here...",
+        height=180
+    )
 
-metric1, metric2, metric3 = st.columns(3)
+    predict_button = st.button("🚀 Predict Toxicity")
 
-metric1.metric(
-    "Training Accuracy",
-    "99.33%"
-)
+# ---------------------------------------------------
+# RIGHT SIDE
+# ---------------------------------------------------
 
-metric2.metric(
-    "Validation Accuracy",
-    "99.30%"
-)
+with col2:
 
-metric3.metric(
-    "Validation Loss",
-    "0.0376"
-)
+    st.subheader("📌 Sample Comments")
 
-# =========================================================
-# SAMPLE TEST COMMENTS
-# =========================================================
+    st.info("Have a nice day 😊")
+    st.warning("I hate you idiot")
+    st.success("This project is amazing")
 
-st.header("💡 Sample Test Comments")
+# ---------------------------------------------------
+# PREDICTION
+# ---------------------------------------------------
 
-st.info("I hate you idiot")
+if predict_button:
 
-st.success("Have a nice day")
-
-st.warning("You are a stupid person")
-
-# =========================================================
-# SINGLE COMMENT PREDICTION
-# =========================================================
-
-st.header("🧠 Single Comment Prediction")
-
-user_input = st.text_area(
-    "Enter a Comment"
-)
-
-if st.button("Predict Toxicity"):
-
-    if user_input.strip() != "":
-
-        # Clean text
-
-        cleaned_text = clean_text(user_input)
-
-        # Vectorize
-
-        vectorized_text = vectorizer(
-            [cleaned_text]
-        )
-
-        # Predict
-
-        prediction = model.predict(
-            vectorized_text
-        )
-
-        st.subheader("Prediction Results")
-
-        # Show probabilities
-
-        for label, prob in zip(labels, prediction[0]):
-
-            percentage = round(prob * 100, 2)
-
-            st.write(f"### {label}")
-
-            st.progress(float(prob))
-
-            st.write(f"{percentage}%")
+    if user_input.strip() == "":
+        st.warning("Please enter a comment.")
 
     else:
 
-        st.warning(
-            "Please enter a comment"
+        vectorized_text = vectorizer([user_input])
+
+        prediction = model.predict(vectorized_text)
+
+        st.markdown(
+            '<div class="result-box">',
+            unsafe_allow_html=True
         )
 
-# =========================================================
-# BULK CSV PREDICTION
-# =========================================================
+        st.subheader("📊 Prediction Results")
 
-st.header("📂 Bulk Prediction using CSV")
+        for i, label in enumerate(labels):
+
+            score = float(prediction[0][i] * 100)
+
+            st.write(f"### {label.replace('_',' ').title()} : {score:.2f}%")
+
+            st.progress(min(int(score), 100))
+            if score < 10:
+               st.success("Not Detected")
+            else:
+               st.error(f"{score:.2f}% Detected")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# ---------------------------------------------------
+# CSV UPLOAD
+# ---------------------------------------------------
+
+st.markdown("---")
+
+st.subheader("📂 Bulk CSV Prediction")
 
 uploaded_file = st.file_uploader(
     "Upload CSV File",
@@ -257,91 +196,71 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    bulk_df = pd.read_csv(uploaded_file)
+    df = pd.read_csv(uploaded_file)
 
-    st.subheader("Uploaded Dataset")
+    st.write("### Uploaded Dataset")
+    st.dataframe(df.head())
 
-    st.dataframe(
-        bulk_df.head(),
-        use_container_width=True
-    )
+    if "comment_text" in df.columns:
 
-    # Check required column
-
-    if 'comment_text' in bulk_df.columns:
-
-        # Clean comments
-
-        bulk_df['clean_comment'] = (
-            bulk_df['comment_text']
-            .apply(clean_text)
+        vectorized_comments = vectorizer(
+            df["comment_text"].values
         )
 
-        # Vectorize
+        predictions = model.predict(vectorized_comments)
 
-        bulk_vector = vectorizer(
-            bulk_df['clean_comment'].values
-        )
-
-        # Predict
-
-        bulk_predictions = model.predict(
-            bulk_vector
-        )
-
-        # Convert to binary
-
-        binary_predictions = (
-            bulk_predictions > 0.5
-        ).astype(int)
-
-        prediction_df = pd.DataFrame(
-            binary_predictions,
+        predictions_df = pd.DataFrame(
+            predictions,
             columns=labels
         )
 
-        # Final output
-
-        final_output = pd.concat(
-            [
-                bulk_df,
-                prediction_df
-            ],
+        final_df = pd.concat(
+            [df, predictions_df],
             axis=1
         )
 
-        st.subheader("Prediction Preview")
+        st.write("### Prediction Results")
+        st.dataframe(final_df.head())
 
-        st.dataframe(
-            final_output.head(10),
-            use_container_width=True
-        )
-
-        # Download predictions
-
-        csv = final_output.to_csv(
-            index=False
-        ).encode('utf-8')
+        csv = final_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="⬇ Download Predictions CSV",
+            label="⬇️ Download Predictions",
             data=csv,
-            file_name='bulk_predictions.csv',
-            mime='text/csv'
+            file_name="test_predictions.csv",
+            mime="text/csv"
         )
 
     else:
+        st.error("CSV must contain 'comment_text' column.")
 
-        st.error(
-            "CSV file must contain 'comment_text' column"
-        )
+# ---------------------------------------------------
+# SIDEBAR
+# ---------------------------------------------------
 
-# =========================================================
+st.sidebar.title("📘 About Project")
+
+st.sidebar.info(
+    """
+    This project uses:
+
+    ✅ NLP
+    ✅ Deep Learning
+    ✅ Bidirectional LSTM
+    ✅ TensorFlow
+    ✅ Streamlit
+
+    to detect toxic comments.
+    """
+)
+
+st.sidebar.success("Model Accuracy: 99.3%")
+
+# ---------------------------------------------------
 # FOOTER
-# =========================================================
-
-st.markdown("---")
+# ---------------------------------------------------
 
 st.markdown(
-    "Developed using Deep Learning, NLP, TensorFlow, and Streamlit 🚀"
+    '<div class="footer">Developed by Shamela K 🚀</div>',
+    unsafe_allow_html=True
 )
